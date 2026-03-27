@@ -8,10 +8,14 @@ def check_password():
         st.session_state.authenticated = False
 
     if not st.session_state.authenticated:
+        password_correcta = st.secrets.get("PASSWORD_AGENCIA", "admin123")
+        password_usuario = st.text_input("Clave de acceso THNDR:", type="password")
         password = st.text_input("Introduce la clave de acceso de THNDR:", type="password")
-        if password == "TU_CONTRASEÑA_SECRETA": # <--- Pon aquí lo que quieras
+        if password_usuario == password_correcta:
             st.session_state.authenticated = True
-            st.rerun()
+            st.rerun
+        elif password_usuario:
+            st.error("¿Seguro que eres el CEO? Clave incorrecta.")
         return False
     return True
 
