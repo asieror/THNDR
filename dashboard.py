@@ -50,20 +50,15 @@ if btn_lanzar:
     else:
         # 1. Crear un contenedor de estado profesional
         with st.status("🏗️ Preparando oficina y configurando agentes...", expanded=True) as status:
+            # Preparamos el "clima" para el proceso (Variables de Entorno)
+            # Esto le dice a MetaGPT los datos de Groq sin necesidad de archivos
+            env_agencia = os.environ.copy()
+            env_agencia["METAGPT_LLM_API_KEY"] = st.secrets["GROQ_API_KEY"]
+            env_agencia["METAGPT_LLM_API_TYPE"] = "openai"
+            env_agencia["METAGPT_LLM_BASE_URL"] = "https://api.groq.com/openai/v1"
+            env_agencia["METAGPT_LLM_MODEL"] = modelo
             
-            # --- NUEVO: Crear archivo de configuración para la nube ---
-            config_path = "config2.yaml"
-            llm_config = {
-                "llm": {
-                    "api_type": "openai",
-                    "api_key": st.secrets["GROQ_API_KEY"], # Usa el secreto de la nube
-                    "base_url": "https://api.groq.com/openai/v1",
-                    "model": modelo # El modelo que elegiste en el selectbox
-                }
-            }
-            
-            with open(config_path, "w", encoding="utf-8") as f:
-                yaml.dump(llm_config, f)
+            st.write("✅ Variables de entorno inyectadas.")
             
             st.write("✅ Configuración de Groq inyectada correctamente.")
             # ---------------------------------------------------------
@@ -80,6 +75,7 @@ if btn_lanzar:
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.STDOUT, 
                 text=True,
+                env=env_agencia
                 bufsize=1
             )
 
