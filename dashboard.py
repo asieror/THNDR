@@ -75,7 +75,7 @@ if btn_lanzar:
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.STDOUT, 
                 text=True,
-                env=env_agencia
+                env=env_agencia,
                 bufsize=1
             )
 
