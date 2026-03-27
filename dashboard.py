@@ -53,8 +53,12 @@ st.title("⚡ THNDR: Agency OS")
 with st.sidebar:
     st.header("⚙️ Configuración")
     modelo = st.selectbox("Cerebro Activo:", [
-        "llama-3.3-70b-versatile", 
-        "claude-3-5-sonnet-20240620"
+        "openai/gpt-oss-120b",           # El "Gigante" para auditorías profundas
+        "meta-llama/llama-4-scout-17b-16e-instruct", # Nuevo Llama 4 (muy inteligente)
+        "llama-3.3-70b-versatile",       # Tu modelo equilibrado
+        "qwen/qwen3-32b",                # Excelente para código
+        "groq/compound",                 # Modelo optimizado propio de Groq
+        "openai/gpt-oss-20b"             # Rápido pero inteligente
     ])
     
     st.divider()
