@@ -4,6 +4,7 @@ import sys
 import os
 import shlex
 import yaml
+from pathlib import Path # Importante: añade esto arriba
 
 st.set_page_config(page_title="THNDR Agency OS", page_icon="⚡", layout="wide")
 
@@ -50,32 +51,39 @@ if btn_lanzar:
     else:
         # 1. Crear un contenedor de estado profesional
         with st.status("🏗️ Preparando oficina y configurando agentes...", expanded=True) as status:
-            # Preparamos el "clima" para el proceso (Variables de Entorno)
-            # Esto le dice a MetaGPT los datos de Groq sin necesidad de archivos
-            env_agencia = os.environ.copy()
-            env_agencia["METAGPT_LLM_API_KEY"] = st.secrets["GROQ_API_KEY"]
-            env_agencia["METAGPT_LLM_API_TYPE"] = "openai"
-            env_agencia["METAGPT_LLM_BASE_URL"] = "https://api.groq.com/openai/v1"
-            env_agencia["METAGPT_LLM_MODEL"] = modelo
+            # 1. Localizar el 'Home' del servidor
+            home = Path.home()
+            config_dir = home / ".metagpt"
+            config_dir.mkdir(parents=True, exist_ok=True) # Crea la carpeta si no existe
+            config_path = config_dir / "config2.yaml"
             
-            st.write("✅ Variables de entorno inyectadas.")
+            # 2. Preparar los datos
+            llm_config = {
+                "llm": {
+                    "api_type": "openai",
+                    "api_key": st.secrets["GROQ_API_KEY"],
+                    "base_url": "https://api.groq.com/openai/v1",
+                    "model": modelo
+                }
+            }
             
-            st.write("✅ Configuración de Groq inyectada correctamente.")
-            # ---------------------------------------------------------
-            st.write("Conectando con los servidores de Groq...")
+            # 3. Escribir el archivo en la ruta sagrada de MetaGPT
+            with open(config_path, "w", encoding="utf-8") as f:
+                yaml.dump(llm_config, f)
             
-            # 2. Ejecutar el comando y leer la salida línea a 
-            # shlex.quote limpia los paréntesis y comillas automáticamente para Linux
+            st.write(f"✅ Archivo de configuración inyectado en: {config_path}")
+
+            # 4. Lanzar MetaGPT
             idea_segura = shlex.quote(idea)
             comando = f"metagpt {idea_segura}"
             #comando = f'metagpt "{idea}"'
+            # Ahora lanzamos el proceso de forma limpia
             process = subprocess.Popen(
                 comando, 
                 shell=True, 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.STDOUT, 
                 text=True,
-                env=env_agencia,
                 bufsize=1
             )
 
