@@ -3,6 +3,7 @@ import subprocess
 import sys
 import os
 import shlex
+import yaml
 
 st.set_page_config(page_title="THNDR Agency OS", page_icon="⚡", layout="wide")
 
@@ -48,7 +49,24 @@ if btn_lanzar:
         st.warning("El CEO debe dar una orden antes de empezar.")
     else:
         # 1. Crear un contenedor de estado profesional
-        with st.status("🏗️ La agencia está montando el proyecto...", expanded=True) as status:
+        with st.status("🏗️ Preparando oficina y configurando agentes...", expanded=True) as status:
+            
+            # --- NUEVO: Crear archivo de configuración para la nube ---
+            config_path = "config2.yaml"
+            llm_config = {
+                "llm": {
+                    "api_type": "openai",
+                    "api_key": st.secrets["GROQ_API_KEY"], # Usa el secreto de la nube
+                    "base_url": "https://api.groq.com/openai/v1",
+                    "model": modelo # El modelo que elegiste en el selectbox
+                }
+            }
+            
+            with open(config_path, "w", encoding="utf-8") as f:
+                yaml.dump(llm_config, f)
+            
+            st.write("✅ Configuración de Groq inyectada correctamente.")
+            # ---------------------------------------------------------
             st.write("Conectando con los servidores de Groq...")
             
             # 2. Ejecutar el comando y leer la salida línea a 
