@@ -1,76 +1,93 @@
 import streamlit as st
 import subprocess
+import sys
 import os
 
-# Sistema de Login Simple
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
+st.set_page_config(page_title="THNDR Agency OS", page_icon="⚡", layout="wide")
 
-    if not st.session_state.authenticated:
-        password_correcta = st.secrets.get("PASSWORD_AGENCIA", "admin123")
-        password_usuario = st.text_input("Clave de acceso THNDR:", type="password")
-        password = st.text_input("Introduce la clave de acceso de THNDR:", type="password")
-        if password_usuario == password_correcta:
-            st.session_state.authenticated = True
-            st.rerun
-        elif password_usuario:
-            st.error("¿Seguro que eres el CEO? Clave incorrecta.")
-        return False
-    return True
+# Estilo para que los logs parezcan una terminal real
+st.markdown("""
+    <style>
+    .terminal-style {
+        background-color: #0e1117;
+        color: #00ff00;
+        font-family: 'Courier New', Courier, monospace;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #444;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-if not check_password():
-    st.stop() # Detiene la app si no hay contraseña
+st.title("⚡ THNDR: Centro de Mando de IA")
 
-# Configuración de la página
-st.set_page_config(page_title="THNDR AI Agency", page_icon="⚡", layout="wide")
-
-st.title("⚡ THNDR: AI Software Factory")
-st.markdown("---")
-
-# Barra lateral para configuración
 with st.sidebar:
-    st.header("Configuración de la Agencia")
-    modelo = st.selectbox(
-        "Seleccionar Cerebro (LLM):",
-        ["llama-3.3-70b-versatile", "llama3.1-70b-versatile", "claude-3-5-sonnet-20240620"]
-    )
-    st.info("Nota: Asegúrate de que el modelo coincida con tu config2.yaml")
+    st.header("⚙️ Configuración")
+    modelo = st.selectbox("Cerebro Activo:", ["llama-3.3-70b-versatile", "claude-3-5-sonnet-20240620"])
+    st.divider()
+    if st.button("🧹 Limpiar Pantalla"):
+        st.rerun()
 
-# Cuerpo principal
-col1, col2 = st.columns([2, 1])
+col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.subheader("💡 Nueva Idea de Negocio")
-    idea = st.text_area(
-        "Describe lo que quieres que tu empresa desarrolle hoy:",
-        placeholder="Ej: Una aplicación SaaS que analice el sentimiento de los comentarios en YouTube para creadores..."
-    )
+    st.subheader("💡 Orden de Producción")
+    idea = st.text_area("¿Qué vamos a fabricar hoy?", height=200, placeholder="Ej: RunRank - El LoL de los corredores...")
     
-    if st.button("🚀 Lanzar Producción"):
-        if idea:
-            with st.spinner("La agencia está trabajando... Revisa la terminal para ver los logs en vivo."):
-                # Comando para ejecutar MetaGPT
-                # Usamos sys.executable para usar el python del venv
-                try:
-                    comando = f'metagpt "{idea}"'
-                    # Ejecutamos el comando
-                    process = subprocess.Popen(comando, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-                    
-                    st.success("✅ ¡Agentes desplegados! Revisa la carpeta 'workspace' para ver los resultados.")
-                except Exception as e:
-                    st.error(f"Error al lanzar la agencia: {e}")
-        else:
-            st.warning("Por favor, introduce una idea primero.")
+    btn_lanzar = st.button("🚀 INICIAR PROCESO", use_container_width=True)
 
 with col2:
-    st.subheader("📁 Proyectos Recientes")
-    if os.path.exists("workspace"):
-        proyectos = os.listdir("workspace")
-        for p in proyectos:
-            st.write(f"📁 {p}")
+    st.subheader("🕵️ Seguimiento de los Agentes")
+    # Este espacio se actualizará en tiempo real
+    status_placeholder = st.empty()
+    log_placeholder = st.empty()
+
+if btn_lanzar:
+    if not idea:
+        st.warning("El CEO debe dar una orden antes de empezar.")
     else:
-        st.write("Aún no hay proyectos en el workspace.")
+        # 1. Crear un contenedor de estado profesional
+        with st.status("🏗️ La agencia está montando el proyecto...", expanded=True) as status:
+            st.write("Conectando con los servidores de Groq...")
+            
+            # 2. Ejecutar el comando y leer la salida línea a línea
+            comando = f'metagpt "{idea}"'
+            process = subprocess.Popen(
+                comando, 
+                shell=True, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT, 
+                text=True,
+                bufsize=1
+            )
+
+            full_log = ""
+            # Bucle para leer la terminal en vivo
+            for line in iter(process.stdout.readline, ""):
+                full_log += line
+                # Mostramos los últimos 15 líneas de logs para no saturar
+                log_placeholder.code(line, language="bash")
+                
+                # Cambiar mensajes del estado según lo que detectemos en el log
+                if "PrepareDocuments" in line: status.update(label="📄 Alice está redactando el PRD...", state="running")
+                if "WriteDesign" in line: status.update(label="📐 Bob está diseñando la arquitectura...", state="running")
+                if "WriteCode" in line: status.update(label="💻 Eve está programando el sistema...", state="running")
+
+            process.stdout.close()
+            return_code = process.wait()
+
+            if return_code == 0:
+                status.update(label="✅ ¡PROYECTO FINALIZADO CON ÉXITO!", state="complete", expanded=False)
+                st.balloons()
+                st.success("Revisa la carpeta 'workspace' para ver el código y los documentos.")
+            else:
+                status.update(label="❌ ERROR EN LA PRODUCCIÓN", state="error")
+                st.error(f"La agencia se ha detenido. Código de salida: {return_code}")
+                with st.expander("Ver Log de Error Completo"):
+                    st.text(full_log)
 
 st.markdown("---")
-st.caption("THNDR Agency OS v1.0 - Potenciado por MetaGPT y Groq")
+if os.path.exists("workspace"):
+    with st.expander("📂 Explorador de Proyectos"):
+        for p in os.listdir("workspace"):
+            st.write(f"📁 {p}")
