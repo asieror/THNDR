@@ -1,63 +1,97 @@
 import streamlit as st
 import subprocess
-import sys
 import os
 import shlex
 import yaml
-from pathlib import Path # Importante: añade esto arriba
+import zipfile
+import shutil
+from pathlib import Path
 
-st.set_page_config(page_title="THNDR Agency OS", page_icon="⚡", layout="wide")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="THNDR Agency OS v3.0", page_icon="⚡", layout="wide")
 
-# Estilo para que los logs parezcan una terminal real
+# Estilo de Terminal
 st.markdown("""
     <style>
-    .terminal-style {
-        background-color: #0e1117;
-        color: #00ff00;
-        font-family: 'Courier New', Courier, monospace;
-        padding: 10px;
-        border-radius: 5px;
-        border: 1px solid #444;
-    }
+    .stCodeBlock { background-color: #0e1117 !important; }
+    .stTextArea textarea { font-family: 'Courier New', monospace; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚡ THNDR: Centro de Mando de IA")
+# --- FUNCIONES DE APOYO ---
+def preparar_workspace_desde_zip(archivo_zip):
+    """Limpia el workspace actual y extrae el contenido del ZIP"""
+    workspace_path = "workspace"
+    if os.path.exists(workspace_path):
+        shutil.rmtree(workspace_path)
+    os.makedirs(workspace_path)
+    
+    with zipfile.ZipFile(archivo_zip, 'r') as zip_ref:
+        zip_ref.extractall(workspace_path)
+    return True
+
+# --- INTERFAZ - BARRA LATERAL ---
+st.title("⚡ THNDR: Centro de Mando e Iteración")
 
 with st.sidebar:
     st.header("⚙️ Configuración")
-    modelo = st.selectbox("Cerebro Activo:", ["llama-3.3-70b-versatile", "claude-3-5-sonnet-20240620"])
-    st.divider()
-    if st.button("🧹 Limpiar Pantalla"):
-        st.rerun()
-
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    st.subheader("💡 Orden de Producción")
-    idea = st.text_area("¿Qué vamos a fabricar hoy?", height=200, placeholder="Ej: RunRank - El LoL de los corredores...")
+    modelo = st.selectbox("Cerebro Activo:", [
+        "llama-3.3-70b-versatile", 
+        "claude-3-5-sonnet-20240620"
+    ])
     
-    btn_lanzar = st.button("🚀 INICIAR PROCESO", use_container_width=True)
+    st.divider()
+    
+    st.subheader("📂 Memoria de Proyecto")
+    st.info("Sube un .zip de un proyecto anterior para iterar sobre él.")
+    archivo_subido = st.file_uploader("Cargar proyecto (.zip)", type=["zip"])
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("🧹 Limpiar Todo"):
+            if os.path.exists("workspace"):
+                shutil.rmtree("workspace")
+            st.rerun()
 
-with col2:
+# --- INTERFAZ - CUERPO PRINCIPAL ---
+col_input, col_status = st.columns([1, 1])
+
+with col_input:
+    st.subheader("💡 Orden de Producción")
+    idea = st.text_area(
+        "¿Qué vamos a fabricar o mejorar hoy?", 
+        height=250, 
+        placeholder="Ej: 'Añade un sistema de logros al código de RunRank que ya está en el workspace...'"
+    )
+    
+    # Interruptor clave para la iteración
+    modo_incremental = st.toggle("🔄 Modo Incremental (No borrar, mejorar existente)", value=True)
+    
+    btn_lanzar = st.button("🚀 EJECUTAR ACCIÓN", use_container_width=True)
+
+with col_status:
     st.subheader("🕵️ Seguimiento de los Agentes")
-    # Este espacio se actualizará en tiempo real
     status_placeholder = st.empty()
     log_placeholder = st.empty()
 
+# --- LÓGICA DE EJECUCIÓN ---
 if btn_lanzar:
     if not idea:
         st.warning("El CEO debe dar una orden antes de empezar.")
     else:
-        # 1. Crear un contenedor de estado profesional
-        with st.status("🏗️ Preparando oficina y configurando agentes...", expanded=True) as status:
-            # 1. Localizar el 'Home' del servidor
+        with st.status("🏗️ Preparando oficina...", expanded=True) as status:
+            
+            # 1. Gestionar el ZIP si existe
+            if archivo_subido:
+                st.write("📦 Extrayendo proyecto base en el workspace...")
+                preparar_workspace_desde_zip(archivo_subido)
+
+            # 2. Inyectar Configuración de Groq (Ruta Sagrada)
             home = Path.home()
             config_dir = home / ".metagpt"
-            config_dir.mkdir(parents=True, exist_ok=True) # Crea la carpeta si no existe
+            config_dir.mkdir(parents=True, exist_ok=True)
             config_path = config_dir / "config2.yaml"
             
-            # 2. Preparar los datos
             llm_config = {
                 "llm": {
                     "api_type": "openai",
@@ -67,17 +101,19 @@ if btn_lanzar:
                 }
             }
             
-            # 3. Escribir el archivo en la ruta sagrada de MetaGPT
             with open(config_path, "w", encoding="utf-8") as f:
                 yaml.dump(llm_config, f)
             
-            st.write(f"✅ Archivo de configuración inyectado en: {config_path}")
+            st.write(f"✅ Configuración inyectada.")
 
-            # 4. Lanzar MetaGPT
+            # 3. Construir comando (con o sin --inc)
             idea_segura = shlex.quote(idea)
             comando = f"metagpt {idea_segura}"
-            #comando = f'metagpt "{idea}"'
-            # Ahora lanzamos el proceso de forma limpia
+            if modo_incremental:
+                comando += " --inc"
+                st.write("🔄 Trabajando en modo incremental sobre archivos existentes.")
+
+            # 4. Lanzar Proceso
             process = subprocess.Popen(
                 comando, 
                 shell=True, 
@@ -88,32 +124,36 @@ if btn_lanzar:
             )
 
             full_log = ""
-            # Bucle para leer la terminal en vivo
             for line in iter(process.stdout.readline, ""):
                 full_log += line
-                # Mostramos los últimos 15 líneas de logs para no saturar
                 log_placeholder.code(line, language="bash")
                 
-                # Cambiar mensajes del estado según lo que detectemos en el log
-                if "PrepareDocuments" in line: status.update(label="📄 Alice está redactando el PRD...", state="running")
-                if "WriteDesign" in line: status.update(label="📐 Bob está diseñando la arquitectura...", state="running")
-                if "WriteCode" in line: status.update(label="💻 Eve está programando el sistema...", state="running")
+                # Actualización de mensajes según el log
+                if "PrepareDocuments" in line: status.update(label="📄 Alice analizando contexto/mejoras...", state="running")
+                if "WriteDesign" in line: status.update(label="📐 Bob rediseñando arquitectura...", state="running")
+                if "WriteCode" in line: status.update(label="💻 Eve editando el código...", state="running")
 
             process.stdout.close()
             return_code = process.wait()
 
             if return_code == 0:
-                status.update(label="✅ ¡PROYECTO FINALIZADO CON ÉXITO!", state="complete", expanded=False)
+                status.update(label="✅ TAREA COMPLETADA", state="complete", expanded=False)
                 st.balloons()
-                st.success("Revisa la carpeta 'workspace' para ver el código y los documentos.")
             else:
                 status.update(label="❌ ERROR EN LA PRODUCCIÓN", state="error")
-                st.error(f"La agencia se ha detenido. Código de salida: {return_code}")
-                with st.expander("Ver Log de Error Completo"):
-                    st.text(full_log)
+                st.error("Revisa el log para más detalles.")
 
+# --- EXPLORADOR DE ARCHIVOS ---
 st.markdown("---")
 if os.path.exists("workspace"):
-    with st.expander("📂 Explorador de Proyectos"):
-        for p in os.listdir("workspace"):
-            st.write(f"📁 {p}")
+    with st.expander("📂 Explorador de Archivos (Workspace Actual)"):
+        # Listar carpetas de proyectos
+        proyectos = [d for d in os.listdir("workspace") if os.path.isdir(os.path.join("workspace", d))]
+        if proyectos:
+            for proj in proyectos:
+                st.write(f"📁 **Proyecto: {proj}**")
+                archivos = os.listdir(os.path.join("workspace", proj))
+                for f in archivos:
+                    st.text(f"   └── {f}")
+        else:
+            st.write("Workspace vacío. Listo para una nueva idea.")
