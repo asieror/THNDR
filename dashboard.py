@@ -2,6 +2,7 @@ import streamlit as st
 import subprocess
 import sys
 import os
+import shlex
 
 st.set_page_config(page_title="THNDR Agency OS", page_icon="⚡", layout="wide")
 
@@ -50,8 +51,11 @@ if btn_lanzar:
         with st.status("🏗️ La agencia está montando el proyecto...", expanded=True) as status:
             st.write("Conectando con los servidores de Groq...")
             
-            # 2. Ejecutar el comando y leer la salida línea a línea
-            comando = f'metagpt "{idea}"'
+            # 2. Ejecutar el comando y leer la salida línea a 
+            # shlex.quote limpia los paréntesis y comillas automáticamente para Linux
+            idea_segura = shlex.quote(idea)
+            comando = f"metagpt {idea_segura}"
+            #comando = f'metagpt "{idea}"'
             process = subprocess.Popen(
                 comando, 
                 shell=True, 
